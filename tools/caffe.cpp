@@ -49,7 +49,15 @@ DEFINE_string(sighup_effect, "snapshot",
              "snapshot, stop or none.");
 
 // A simple registry for caffe commands.
+/*
+*使用一个map实现caffe命令行的实现
+*g_brew_map存储所有的string->函数指针的映射
+*RegisterBrewFunction宏定义用来注册函数，例如注册train函数，test函数等
+*运行时传入指定的参数如train等就会执行对应的函数。
+*GetBrewFunction在主函数中被使用来得到相应的函数指针
+*/
 typedef int (*BrewFunction)();
+//caffe 命名空间声明在common.hpp中，使用了std的string，和boost的智能指针
 typedef std::map<caffe::string, BrewFunction> BrewMap;
 BrewMap g_brew_map;
 
@@ -63,7 +71,10 @@ class __Registerer_##func { \
 }; \
 __Registerer_##func g_registerer_##func; \
 }
-
+/*
+*根据参数字符串从g_brew_map中取得对应的函数指针
+*例如传入参数train将返回函数指针train函数
+*/
 static BrewFunction GetBrewFunction(const caffe::string& name) {
   if (g_brew_map.count(name)) {
     return g_brew_map[name];
