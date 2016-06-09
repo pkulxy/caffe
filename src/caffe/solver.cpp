@@ -43,6 +43,7 @@ Solver<Dtype>::Solver(const string& param_file, const Solver* root_solver)
 
 template <typename Dtype>
 void Solver<Dtype>::Init(const SolverParameter& param) {
+  //
   CHECK(Caffe::root_solver() || root_solver_)
       << "root_solver_ needs to be set for all non-root solvers";
   LOG_IF(INFO, Caffe::root_solver()) << "Initializing solver from parameters: "
@@ -192,14 +193,19 @@ void Solver<Dtype>::InitTestNets() {
 
 template <typename Dtype>
 void Solver<Dtype>::Step(int iters) {
+  //设置开始的迭代次数(如果是从之前的snapshot恢复的，那iter_等于snapshot时的迭代次数)和结束的迭代次数
   const int start_iter = iter_;
   const int stop_iter = iter_ + iters;
+  
+  // 输出的loss为前average_loss次loss的平均值，在solver.prototxt里设置，默认为1，
+  // losses存储之前的average_loss个loss，smoothed_loss为最后要输出的均值
   int average_loss = this->param_.average_loss();
   losses_.clear();
   smoothed_loss_ = 0;
-
+  //迭代iters次
   while (iter_ < stop_iter) {
     // zero-init the params
+	// 清空上一次所有参数的梯度
     net_->ClearParamDiffs();
     if (param_.test_interval() && iter_ % param_.test_interval() == 0
         && (iter_ > 0 || param_.test_initialization())
@@ -211,12 +217,15 @@ void Solver<Dtype>::Step(int iters) {
       }
     }
 
+	//GPU并行计算
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_start();
     }
+	// 判断当前迭代次数是否需要显示loss等信息
     const bool display = param_.display() && iter_ % param_.display() == 0;
     net_->set_debug_info(display && param_.debug_info());
     // accumulate the loss and gradient
+	//计算loss和梯度
     Dtype loss = 0;
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward();
@@ -224,7 +233,8 @@ void Solver<Dtype>::Step(int iters) {
     loss /= param_.iter_size();
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (display) {
+    // 输出当前迭代的信息
+	if (display) {
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
           << ", loss = " << smoothed_loss_;
       const vector<Blob<Dtype>*>& result = net_->output_blobs();
@@ -250,6 +260,7 @@ void Solver<Dtype>::Step(int iters) {
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_gradients_ready();
     }
+	// 执行梯度的更新，这个函数在基类`Solver`中没有实现，会调用每个子类自己的实现
     ApplyUpdate();
 
     // Increment the internal iter_ counter -- its value should always indicate
@@ -265,6 +276,7 @@ void Solver<Dtype>::Step(int iters) {
          (request == SolverAction::SNAPSHOT)) {
       Snapshot();
     }
+	//通过检查SolverAction判断是否需要提前停止训练
     if (SolverAction::STOP == request) {
       requested_early_exit_ = true;
       // Break out of training loop.
@@ -275,13 +287,14 @@ void Solver<Dtype>::Step(int iters) {
 
 template <typename Dtype>
 void Solver<Dtype>::Solve(const char* resume_file) {
+  // 检查当前是否是root_solver(多GPU模式下，只有root_solver才运行这一部分的代码)
   CHECK(Caffe::root_solver());
   LOG(INFO) << "Solving " << net_->name();
   LOG(INFO) << "Learning Rate Policy: " << param_.lr_policy();
 
   // Initialize to false every time we start solving.
   requested_early_exit_ = false;
-
+  // 判断`resume_file`这个指针是否NULL，如果不是则需要从resume_file存储的路径里读取之前训练的状态
   if (resume_file) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
     Restore(resume_file);
@@ -289,14 +302,19 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
   // For a network that is trained by the solver, no bottom or top vecs
   // should be given, and we will just provide dummy vecs.
+  //Step函数实现一步一步的参数更新
+  //iter_总是指向已更新的次数，调用step函数更新参数指定次数的参数更新
   int start_iter = iter_;
   Step(param_.max_iter() - iter_);
   // If we haven't already, save a snapshot after optimization, unless
   // overridden by setting snapshot_after_train := false
+  // 迭代结束或者遇到系统信号提前结束后，判断是否需要在训练结束之后snapshot
+ // 这个可以在solver.prototxt里设置
   if (param_.snapshot_after_train()
       && (!param_.snapshot() || iter_ % param_.snapshot() != 0)) {
     Snapshot();
   }
+  //是否提前退出
   if (requested_early_exit_) {
     LOG(INFO) << "Optimization stopped early.";
     return;
@@ -307,6 +325,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   // training, for the train net we only run a forward pass as we've already
   // updated the parameters "max_iter" times -- this final pass is only done to
   // display the loss, which is computed in the forward pass.
+  //训练完成后额外的执行一次train和test来计算loss
   if (param_.display() && iter_ % param_.display() == 0) {
     int average_loss = this->param_.average_loss();
     Dtype loss;

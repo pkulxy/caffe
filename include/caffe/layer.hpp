@@ -40,7 +40,9 @@ class Layer {
   explicit Layer(const LayerParameter& param)
     : layer_param_(param), is_shared_(false) {
       // Set phase and copy blobs (if there are any).
+	  //设置phase值（参与网络的训练还是测试）
       phase_ = param.phase();
+	  //拷贝blobs，如果layer_param_.blobs_size大于0，代表blobs存在
       if (layer_param_.blobs_size() > 0) {
         blobs_.resize(layer_param_.blobs_size());
         for (int i = 0; i < layer_param_.blobs_size(); ++i) {
@@ -53,16 +55,23 @@ class Layer {
 
   /**
    * @brief Implements common layer setup functionality.
-   *
+   * 实现公有的setup函数
    * @param bottom the preshaped input blobs
+   * 输入数据
    * @param top
    *     the allocated but unshaped output blobs, to be shaped by Reshape
-   *
+   *	输出数据，blob对象以构造但是其中的存储空间未申请，
+   *    具体空间大小需根据bottom blob大小和layer_param_共同决定，具体在Reshape函数现实
    * Checks that the number of bottom and top blobs is correct.
    * Calls LayerSetUp to do special layer setup for individual layer types,
    * followed by Reshape to set up sizes of top blobs and internal buffers.
    * Sets up the loss weight multiplier blobs for any non-zero loss weights.
    * This method may not be overridden.
+   * 1. 检查输入输出blob个数是否满足要求，每个层能处理的输入输出数据不一样
+   * 2. 调用LayerSetUp函数初始化特殊的层，每个Layer子类需重写这个函数完成定制的初始化
+   * 3. 调用Reshape函数为top blob分配合适大小的存储空间
+   * 4. 为每个top blob设置损失权重乘子，非LossLayer为的top blob其值为零
+   * 此方法非虚函数，不用重写，模式固定
    */
   void SetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
@@ -76,18 +85,25 @@ class Layer {
   /**
    * @brief Does layer-specific setup: your layer should implement this function
    *        as well as Reshape.
+   * @brief 定制初始化，每个子类layer必须实现此虚函数
    *
    * @param bottom
    *     the preshaped input blobs, whose data fields store the input data for
    *     this layer
+   * @param bottom
+   *     输入blob, 数据成员data_和diff_存储了相关数据
    * @param top
    *     the allocated but unshaped output blobs
+   * @param top
+   *     输出blob, blob对象已构造但数据成员的空间尚未申请
    *
    * This method should do one-time layer specific setup. This includes reading
    * and processing relevent parameters from the <code>layer_param_</code>.
    * Setting up the shapes of top blobs and internal buffers should be done in
    * <code>Reshape</code>, which will be called before the forward pass to
    * adjust the top blob sizes.
+   * 此方法执行一次定制化的层初始化，包括从layer_param_读入并处理相关的层权值和偏置参数，
+   * 调用Reshape函数申请top blob的存储空间
    */
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {}
@@ -97,8 +113,11 @@ class Layer {
    *        parallelism. By default, all layers except for data layers should
    *        not be shared. data layers should be shared to ensure each worker
    *        solver access data sequentially during data parallelism.
+   *网络层是否可以共享在数据并行的时候。一般情况下，除了数据层，其他层都不应该被共享，
+   *数据层应该被共享以保证每个工作的solver在数据并行的时候可以顺序的访问数据   
    */
   virtual inline bool ShareInParallel() const { return false; }
+
 
   /** @brief Return whether this layer is actually shared by other nets.
    *         If ShareInParallel() is true and using more than one GPU and the
@@ -119,7 +138,7 @@ class Layer {
   /**
    * @brief Adjust the shapes of top blobs and internal buffers to accommodate
    *        the shapes of the bottom blobs.
-   *
+   *根据bottom blob的形状和layer_param_计算top blob的形状并为其分配存储空间
    * @param bottom the input blobs, with the requested input shapes
    * @param top the top blobs, which should be reshaped as needed
    *
@@ -133,7 +152,7 @@ class Layer {
 
   /**
    * @brief Given the bottom blobs, compute the top blobs and the loss.
-   *
+   *给出bottom blobs，计算出top blobs和loss
    * @param bottom
    *     the input blobs, whose data fields store the input data for this layer
    * @param top
@@ -145,7 +164,8 @@ class Layer {
    * (Forward_cpu or Forward_gpu) to compute the top blob values given the
    * bottom blobs.  If the layer has any non-zero loss_weights, the wrapper
    * then computes and returns the loss.
-   *
+   *调用Forward_cpu或Forward_gpu函数计算top blob值，如果layer的loss_weights值
+   *不为0，函数计算并返回loss值
    * Your layer should implement Forward_cpu and (optionally) Forward_gpu.
    */
   inline Dtype Forward(const vector<Blob<Dtype>*>& bottom,
@@ -154,14 +174,16 @@ class Layer {
   /**
    * @brief Given the top blob error gradients, compute the bottom blob error
    *        gradients.
-   *
+   *根据top blob的梯度，计算bottom blob 的梯度
    * @param top
    *     the output blobs, whose diff fields store the gradient of the error
    *     with respect to themselves
+   *out blobs 的diff字段存储了梯度
    * @param propagate_down
    *     a vector with equal length to bottom, with each index indicating
    *     whether to propagate the error gradients down to the bottom blob at
    *     the corresponding index
+   *一个到bottom相等数组，每个索引表明是否传播梯度到bottom blob
    * @param bottom
    *     the input blobs, whose diff fields will store the gradient of the error
    *     with respect to themselves after Backward is run
@@ -178,6 +200,7 @@ class Layer {
 
   /**
    * @brief Returns the vector of learnable parameter blobs.
+   *返回可学习的参数
    */
   vector<shared_ptr<Blob<Dtype> > >& blobs() {
     return blobs_;
@@ -185,16 +208,19 @@ class Layer {
 
   /**
    * @brief Returns the layer parameter.
+   *返回层的参数
    */
   const LayerParameter& layer_param() const { return layer_param_; }
 
   /**
    * @brief Writes the layer parameter to a protocol buffer
+   *将层的参数写到proto文件中
    */
   virtual void ToProto(LayerParameter* param, bool write_diff = false);
 
   /**
    * @brief Returns the scalar loss associated with a top blob at a given index.
+   *对于top blob 返回指定索引处的loss值
    */
   inline Dtype loss(const int top_index) const {
     return (loss_.size() > top_index) ? loss_[top_index] : Dtype(0);
@@ -275,7 +301,7 @@ class Layer {
   /**
    * @brief Return whether "anonymous" top blobs are created automatically
    *        by the layer.
-   *
+   *是否自动匿名创建top blobs
    * If this method returns true, Net::Init will create enough "anonymous" top
    * blobs to fulfill the requirement specified by ExactNumTopBlobs() or
    * MinTopBlobs().
@@ -285,7 +311,7 @@ class Layer {
   /**
    * @brief Return whether to allow force_backward for a given bottom blob
    *        index.
-   *
+   *是否全部强制反向传播
    * If AllowForceBackward(i) == false, we will ignore the force_backward
    * setting and backpropagate to blob i only if it needs gradient information
    * (as is done when force_backward == false).
@@ -308,6 +334,7 @@ class Layer {
   /**
    * @brief Sets whether the layer should compute gradients w.r.t. a
    *        parameter at a particular index given by param_id.
+   *设置param_id指定索引处是否需要计算梯度值
    */
   inline void set_param_propagate_down(const int param_id, const bool value) {
     if (param_propagate_down_.size() <= param_id) {
@@ -319,16 +346,21 @@ class Layer {
 
  protected:
   /** The protobuf that stores the layer parameters */
+  // 层说明参数，从protocal buffers格式的网络结构说明文件中读取
   LayerParameter layer_param_;
   /** The phase: TRAIN or TEST */
+  // 层状态，参与网络的训练还是测试
   Phase phase_;
   /** The vector that stores the learnable parameters as a set of blobs. */
+  /* 层权值和偏置参数，使用向量是因为权值参数和偏置是分开保存在两个blob中的*/
   vector<shared_ptr<Blob<Dtype> > > blobs_;
   /** Vector indicating whether to compute the diff of each param blob. */
+  /* 标志每个top blob是否需要计算反向传播的梯度值*/
   vector<bool> param_propagate_down_;
 
   /** The vector that indicates whether each top blob has a non-zero weight in
    *  the objective function. */
+   /* 非LossLayer为零，LossLayer中表示每个top blob计算的loss的权重*/
   vector<Dtype> loss_;
 
   /** @brief Using the CPU device, compute the layer output. */
@@ -367,6 +399,8 @@ class Layer {
    * Called by the parent Layer's SetUp to check that the number of bottom
    * and top Blobs provided as input match the expected numbers specified by
    * the {ExactNum,Min,Max}{Bottom,Top}Blobs() functions.
+   *被父层 setup函数调用来得到作为输入参数的bottom 和 top blobs 数量
+   *以此匹配{ExactNum,Min,Max}{Bottom,Top}Blobs() 等函数的数量
    */
   virtual void CheckBlobCounts(const vector<Blob<Dtype>*>& bottom,
                                const vector<Blob<Dtype>*>& top) {
@@ -410,6 +444,7 @@ class Layer {
   /**
    * Called by SetUp to initialize the weights associated with any top blobs in
    * the loss function. Store non-zero loss weights in the diff blob.
+   *被setup函数调用来初始化在loss函数中与每个top blobs相关联的权重
    */
   inline void SetLossWeights(const vector<Blob<Dtype>*>& top) {
     const int num_loss_weights = layer_param_.loss_weight_size();

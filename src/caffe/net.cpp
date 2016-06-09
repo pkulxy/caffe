@@ -41,6 +41,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   CHECK(Caffe::root_solver() || root_net_)
       << "root_net_ needs to be set for all non-root solvers";
   // Set phase from the state.
+  //使用NetParameter的phase字段设置phase值
   phase_ = in_param.state().phase();
   // Filter layers based on their include/exclude rules and
   // the current NetState.
@@ -58,6 +59,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   set<string> available_blobs;
   memory_used_ = 0;
   // For each layer, set up its input and output
+  //初始化每层的输入和输出
   bottom_vecs_.resize(param.layer_size());
   top_vecs_.resize(param.layer_size());
   bottom_id_vecs_.resize(param.layer_size());
@@ -69,10 +71,12 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     bool share_from_root = !Caffe::root_solver()
         && root_net_->layers_[layer_id]->ShareInParallel();
     // Inherit phase from net if unset.
+	//从net继承所处于的时期并设置phase值
     if (!param.layer(layer_id).has_phase()) {
       param.mutable_layer(layer_id)->set_phase(phase_);
     }
     // Setup layer.
+	//初始化层【layer_id】
     const LayerParameter& layer_param = param.layer(layer_id);
     if (layer_param.propagate_down_size() > 0) {
       CHECK_EQ(layer_param.propagate_down_size(),
@@ -80,6 +84,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
           << "propagate_down param must be specified "
           << "either 0 or bottom_size times ";
     }
+	//将layer加入layer_和layer_names_
     if (share_from_root) {
       LOG(INFO) << "Sharing layer " << layer_param.name() << " from root net";
       layers_.push_back(root_net_->layers_[layer_id]);
@@ -144,6 +149,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
       if (blob_loss_weights_.size() <= top_id_vecs_[layer_id][top_id]) {
         blob_loss_weights_.resize(top_id_vecs_[layer_id][top_id] + 1, Dtype(0));
       }
+	  //更新blob的loss值
       blob_loss_weights_[top_id_vecs_[layer_id][top_id]] = layer->loss(top_id);
       LOG_IF(INFO, Caffe::root_solver())
           << "Top shape: " << top_vecs_[layer_id][top_id]->shape_string();
@@ -151,10 +157,12 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
         LOG_IF(INFO, Caffe::root_solver())
             << "    with loss weight " << layer->loss(top_id);
       }
+	  //更新内存使用情况
       memory_used_ += top_vecs_[layer_id][top_id]->count();
     }
     LOG_IF(INFO, Caffe::root_solver())
         << "Memory required for data: " << memory_used_ * sizeof(Dtype);
+	//设置可学习参数值（权重和偏置）
     const int param_size = layer_param.param_size();
     const int num_param_blobs = layers_[layer_id]->blobs().size();
     CHECK_LE(param_size, num_param_blobs)
@@ -204,6 +212,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     }
     // If this layer can skip backward computation, also all his bottom blobs
     // don't need backpropagation
+	//如果这层可以跳过BP，则它的所有Bottom blobs都不需要BP
     if (layer_need_backward_[layer_id] && layer_skip_propagate_down) {
       layer_need_backward_[layer_id] = false;
       for (int bottom_id = 0; bottom_id < bottom_vecs_[layer_id].size();
@@ -273,7 +282,9 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   debug_info_ = param.debug_info();
   LOG_IF(INFO, Caffe::root_solver()) << "Network initialization done.";
 }
-
+/*
+*删除用户指定的不包括的层
+*/
 template <typename Dtype>
 void Net<Dtype>::FilterNet(const NetParameter& param,
     NetParameter* param_filtered) {
@@ -303,11 +314,12 @@ void Net<Dtype>::FilterNet(const NetParameter& param,
     }
   }
 }
-
+//是否Netstate 状态是否符合NetStateRule中的规则，符合返回true，否则返回false
 template <typename Dtype>
 bool Net<Dtype>::StateMeetsRule(const NetState& state,
     const NetStateRule& rule, const string& layer_name) {
   // Check whether the rule is broken due to phase.
+  //检查phase（相、阶段、周期）字段是否相等
   if (rule.has_phase()) {
       if (rule.phase() != state.phase()) {
         LOG_IF(INFO, Caffe::root_solver())
@@ -318,6 +330,7 @@ bool Net<Dtype>::StateMeetsRule(const NetState& state,
       }
   }
   // Check whether the rule is broken due to min level.
+  //检查当前state的级别是否低于最低级别限制，是的话返回false
   if (rule.has_min_level()) {
     if (state.level() < rule.min_level()) {
       LOG_IF(INFO, Caffe::root_solver())
@@ -328,6 +341,7 @@ bool Net<Dtype>::StateMeetsRule(const NetState& state,
     }
   }
   // Check whether the rule is broken due to max level.
+  //检查当前state的级别是否低于最高级别限制，是的话返回false
   if (rule.has_max_level()) {
     if (state.level() > rule.max_level()) {
       LOG_IF(INFO, Caffe::root_solver())
@@ -339,6 +353,7 @@ bool Net<Dtype>::StateMeetsRule(const NetState& state,
   }
   // Check whether the rule is broken due to stage. The NetState must
   // contain ALL of the rule's stages to meet it.
+  //state必须包含rule.state中的所有规则
   for (int i = 0; i < rule.stage_size(); ++i) {
     // Check that the NetState contains the rule's ith stage.
     bool has_stage = false;
@@ -354,6 +369,7 @@ bool Net<Dtype>::StateMeetsRule(const NetState& state,
   }
   // Check whether the rule is broken due to not_stage. The NetState must
   // contain NONE of the rule's not_stages to meet it.
+  //state必须不包含rule.not_state中的任意一条规则
   for (int i = 0; i < rule.not_stage_size(); ++i) {
     // Check that the NetState contains the rule's ith not_stage.
     bool has_stage = false;

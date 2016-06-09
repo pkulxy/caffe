@@ -10,6 +10,10 @@
 namespace caffe {
 
 // Make sure each thread can have different values.
+/*
+*boost库thread_specific_ptr保证了在多线程环境下，
+*每个线程都可以单独的持有一份数据
+*/
 static boost::thread_specific_ptr<Caffe> thread_instance_;
 
 Caffe& Caffe::Get() {

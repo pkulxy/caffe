@@ -62,25 +62,31 @@ message FillerParameter {
 }
 
 message NetParameter {
-  optional string name = 1; // consider giving the network a name
+  optional string name = 1; // consider giving the network a name网络名字
   // DEPRECATED. See InputParameter. The input blobs to the network.
+  //过时。。。
   repeated string input = 3;
   // DEPRECATED. See InputParameter. The shape of the input blobs.
+  //过时。。。
   repeated BlobShape input_shape = 8;
 
-  // 4D input dimensions -- deprecated.  Use "input_shape" instead.
+  /* 4D input dimensions -- deprecated.  Use "input_shape" instead.
   // If specified, for each input blob there should be four
   // values specifying the num, channels, height and width of the input blob.
   // Thus, there should be a total of (4 * #input) numbers.
+  //过时。。。。。。*/
   repeated int32 input_dim = 4;
 
   // Whether the network will force every layer to carry out backward operation.
   // If set False, then whether to carry out backward is determined
-  // automatically according to the net structure and learning rates.
+  // automatically according to the net structure and learning rates.//
+  //网络是否强制每一层都计算 bp操作
+  //如果设置为false，是否计算bp操作自动取决于网络结构和学习率
   optional bool force_backward = 5 [default = false];
   // The current "state" of the network, including the phase, level, and stage.
   // Some layers may be included/excluded depending on this state and the states
   // specified in the layers' include and exclude fields.
+  //网络的状态，包括时期、级别、阶段
   optional NetState state = 6;
 
   // Print debugging information about results while running Net::Forward,
@@ -89,6 +95,7 @@ message NetParameter {
 
   // The layers that make up the net.  Each of their configurations, including
   // connectivity and behavior, is specified as a LayerParameter.
+  //组成网络的所有层，每层是一个LayerParameter
   repeated LayerParameter layer = 100;  // ID 100 so layers are printed last.
 
   // DEPRECATED: use 'layer' instead.
@@ -209,7 +216,7 @@ message SolverParameter {
   // (and by default) initialize using a seed derived from the system clock.
   optional int64 random_seed = 20 [default = -1];
 
-  // solver的类型
+  // type of the solver
   optional string type = 40 [default = "SGD"];
 
   // numerical stability for RMSProp, AdaGrad and AdaDelta and Adam
@@ -266,7 +273,9 @@ message NetStateRule {
   optional Phase phase = 1;
 
   // Set the minimum and/or maximum levels in which the layer should be used.
+  //设置层在使用时最低或最高级别的设置
   // Leave undefined to meet the rule regardless of level.
+  //如果未定义级别，则忽略级别这条规则
   optional int32 min_level = 2;
   optional int32 max_level = 3;
 
@@ -281,9 +290,12 @@ message NetStateRule {
 // Specifies training parameters (multipliers on global learning constants,
 // and the name and other settings used for weight sharing).
 message ParamSpec {
-  // The names of the parameter blobs -- useful for sharing parameters among
+  /* The names of the parameter blobs -- useful for sharing parameters among
   // layers, but never required otherwise.  To share a parameter between two
   // layers, give it a (non-empty) name.
+  *参数blobs的名字--对于在layer之共享参数非常有用
+  *如果想在两个层间共享参数，则需要制定一个非空的名字
+  */
   optional string name = 1;
 
   // Whether to require shared weights to have the same shape, or just the same
@@ -308,17 +320,20 @@ message ParamSpec {
 //
 // LayerParameter next available layer-specific ID: 146 (last added: parameter_param)
 message LayerParameter {
-  optional string name = 1; // the layer name
-  optional string type = 2; // the layer type
-  repeated string bottom = 3; // the name of each bottom blob
-  repeated string top = 4; // the name of each top blob
+  optional string name = 1; // the layer name网络层的名字
+  optional string type = 2; // the layer type层的类型
+  repeated string bottom = 3; // the name of each bottom blob   bottom blob的名字
+  repeated string top = 4; // the name of each top blob  topBlob的名字
 
-  // The train / test phase for computation.
+  // The train / test phase for computation. Train或者Test字段，标志层存在的时期
   optional Phase phase = 10;
 
-  // The amount of weight to assign each top blob in the objective.
+  /* The amount of weight to assign each top blob in the objective.
   // Each layer assigns a default value, usually of either 0 or 1,
   // to each top blob.
+  *赋值给每个top blob的权重值
+  *每个层赋值一个默认值，通常是0或1
+  */
   repeated float loss_weight = 5;
 
   // Specifies training parameters (multipliers on global learning constants,
@@ -335,14 +350,22 @@ message LayerParameter {
   // backpropagation to those inputs is skipped.
   //
   // The size must be either 0 or equal to the number of bottoms.
+  //对于每个bottom标志是否进行bp，如果未标志，caffe会自动推断是否进行bp
+  //如果标志为true，将强制进行bp，如果标志为false，将跳过
   repeated bool propagate_down = 11;
 
-  // Rules controlling whether and when a layer is included in the network,
+  /* Rules controlling whether and when a layer is included in the network,
   // based on the current NetState.  You may specify a non-zero number of rules
   // to include OR exclude, but not both.  If no include or exclude rules are
   // specified, the layer is always included.  If the current NetState meets
   // ANY (i.e., one or more) of the specified rules, the layer is
   // included/excluded.
+  ///
+  *给予当前NetState控制一个网络层是否被包含进网络中的规则
+  *可以指定一个非0值来确定是否包含这个网络层。
+  *如果没指定规则，则网络层会默认包含
+  *
+  */
   repeated NetStateRule include = 8;
   repeated NetStateRule exclude = 9;
 

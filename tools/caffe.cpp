@@ -163,16 +163,19 @@ caffe::SolverAction::Enum GetRequestedAction(
 
 // Train / Finetune a model.
 int train() {
+  //FLAGS_solver是被gflags解析后的-solver参数，检查-solver参数是否为空
   CHECK_GT(FLAGS_solver.size(), 0) << "Need a solver definition to train.";
+  //提供-snapshot（训练阶段某一时刻的模型快照）、-weights两种方式调优，但同时提供两种方式会出错
   CHECK(!FLAGS_snapshot.size() || !FLAGS_weights.size())
       << "Give a snapshot to resume training or weights to finetune "
       "but not both.";
-
+  //使用gflags获取参数存储到solver_param中
   caffe::SolverParameter solver_param;
   caffe::ReadSolverParamsFromTextFileOrDie(FLAGS_solver, &solver_param);
 
   // If the gpus flag is not provided, allow the mode and device to be set
   // in the solver prototxt.
+  //-gpu参数是否提供、proto文件中gpu参数是否提供
   if (FLAGS_gpu.size() == 0
       && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
       if (solver_param.has_device_id()) {
@@ -187,6 +190,7 @@ int train() {
   get_gpus(&gpus);
   if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
+	//设置模式为cpu模式，caffe类中枚举类型Brew mode_变量存储了模式CPU/GPU
     Caffe::set_mode(Caffe::CPU);
   } else {
     ostringstream s;
@@ -206,11 +210,11 @@ int train() {
     Caffe::set_mode(Caffe::GPU);
     Caffe::set_solver_count(gpus.size());
   }
-
+  //运行过程中用户挂起或停止进程时的处理函数注册
   caffe::SignalHandler signal_handler(
         GetRequestedAction(FLAGS_sigint_effect),
         GetRequestedAction(FLAGS_sighup_effect));
-
+  //创建solver智能指针
   shared_ptr<caffe::Solver<float> >
       solver(caffe::SolverRegistry<float>::CreateSolver(solver_param));
 
@@ -223,10 +227,12 @@ int train() {
     CopyLayers(solver.get(), FLAGS_weights);
   }
 
+  //判断是否使用多个GPU
   if (gpus.size() > 1) {
     caffe::P2PSync<float> sync(solver, NULL, solver->param());
     sync.Run(gpus);
   } else {
+	//开始优化模型
     LOG(INFO) << "Starting Optimization";
     solver->Solve();
   }

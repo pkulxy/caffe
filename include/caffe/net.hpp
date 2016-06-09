@@ -29,11 +29,14 @@ class Net {
   virtual ~Net() {}
 
   /// @brief Initialize a network with a NetParameter.
+  /*
+  *使用NetParameter初始化网络
+  */
   void Init(const NetParameter& param);
 
   /**
    * @brief Run Forward and return the result.
-   *
+   *运行forward并返回结果
    */
   const vector<Blob<Dtype>*>& Forward(Dtype* loss = NULL);
   /// @brief DEPRECATED; use Forward() instead.
@@ -61,6 +64,7 @@ class Net {
   /**
    * @brief Zeroes out the diffs of all net parameters.
    *        Should be run before Backward.
+   *清空所有的diff字段，应该在调用backward前运行
    */
   void ClearParamDiffs();
 
@@ -68,6 +72,7 @@ class Net {
    * The network backward should take no input and output, since it solely
    * computes the gradient w.r.t the parameters, and the data has already been
    * provided during the forward pass.
+   *backward不需要输入和输出参数，因为它独自计算梯度，数据已经在forward过程中提供了
    */
   void Backward();
   void BackwardFromTo(int start, int end);
@@ -90,12 +95,14 @@ class Net {
   }
 
   /// @brief Updates the network weights based on the diff values computed.
+  //根据diff值更新网络的权重
   void Update();
   /**
    * @brief Shares weight data of owner blobs with shared blobs.
-   *
+   *共享自己的权值数据
    * Note: this is called by Net::Init, and thus should normally not be
    * called manually.
+   *被init函数调用，不应该手动调用
    */
   void ShareWeights();
 
@@ -220,28 +227,34 @@ class Net {
   /**
    * @brief Remove layers that the user specified should be excluded given the current
    *        phase, level, and stage.
+   *删除用户指定的不包括的层
    */
   static void FilterNet(const NetParameter& param,
       NetParameter* param_filtered);
   /// @brief return whether NetState state meets NetStateRule rule
+  //是否Netstate 状态是否符合NetStateRule中的规则
   static bool StateMeetsRule(const NetState& state, const NetStateRule& rule,
       const string& layer_name);
 
  protected:
   // Helpers for Init.
   /// @brief Append a new top blob to the net.
+  //向网络添加一个新的top blob
   void AppendTop(const NetParameter& param, const int layer_id,
                  const int top_id, set<string>* available_blobs,
                  map<string, int>* blob_name_to_idx);
   /// @brief Append a new bottom blob to the net.
+  //向网络中添加一个新的bottom blob
   int AppendBottom(const NetParameter& param, const int layer_id,
                    const int bottom_id, set<string>* available_blobs,
                    map<string, int>* blob_name_to_idx);
   /// @brief Append a new parameter blob to the net.
+  //向网络中添加一个新的参数blob
   void AppendParam(const NetParameter& param, const int layer_id,
                    const int param_id);
 
   /// @brief Helper for displaying debug info in Forward.
+  //forward过程中显示调试信息的函数
   void ForwardDebugInfo(const int layer_id);
   /// @brief Helper for displaying debug info in Backward.
   void BackwardDebugInfo(const int layer_id);
@@ -249,15 +262,19 @@ class Net {
   void UpdateDebugInfo(const int param_id);
 
   /// @brief The network name
+  //网络名字
   string name_;
   /// @brief The phase: TRAIN or TEST
+  //网络处于的时期(train Or Test)
   Phase phase_;
   /// @brief Individual layers in the net
+  //网络中的层
   vector<shared_ptr<Layer<Dtype> > > layers_;
   vector<string> layer_names_;
   map<string, int> layer_names_index_;
   vector<bool> layer_need_backward_;
   /// @brief the blobs storing intermediate results between the layer.
+  //存放中间结果的blobs
   vector<shared_ptr<Blob<Dtype> > > blobs_;
   vector<string> blob_names_;
   map<string, int> blob_names_index_;
@@ -265,14 +282,17 @@ class Net {
   /// bottom_vecs stores the vectors containing the input for each layer.
   /// They don't actually host the blobs (blobs_ does), so we simply store
   /// pointers.
+  //bottom_vecs保存每层的input，bottom_vecs实际不存储数据，仅仅是指针
   vector<vector<Blob<Dtype>*> > bottom_vecs_;
   vector<vector<int> > bottom_id_vecs_;
   vector<vector<bool> > bottom_need_backward_;
   /// top_vecs stores the vectors containing the output for each layer
+  //存储所有的top blob
   vector<vector<Blob<Dtype>*> > top_vecs_;
   vector<vector<int> > top_id_vecs_;
   /// Vector of weight in the loss (or objective) function of each net blob,
   /// indexed by blob_id.
+  //loss function 中每个blob的权重，按照blob_id索引
   vector<Dtype> blob_loss_weights_;
   vector<vector<int> > param_id_vecs_;
   vector<int> param_owners_;

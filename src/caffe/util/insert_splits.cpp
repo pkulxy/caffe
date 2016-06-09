@@ -18,6 +18,7 @@ void InsertSplits(const NetParameter& param, NetParameter* param_split) {
   map<pair<int, int>, int> top_idx_to_bottom_count;
   map<pair<int, int>, float> top_idx_to_loss_weight;
   map<pair<int, int>, int> top_idx_to_bottom_split_idx;
+  //层的索引到名字的映射
   map<int, string> layer_idx_to_layer_name;
   for (int i = 0; i < param.layer_size(); ++i) {
     const LayerParameter& layer_param = param.layer(i);

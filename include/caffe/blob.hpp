@@ -27,6 +27,7 @@ class Blob {
        : data_(), diff_(), count_(0), capacity_(0) {}
 
   /// @brief Deprecated; use <code>Blob(const vector<int>& shape)</code>.
+  //过时的构造函数，现在使用Blob(const vector<int>& shape);形式
   explicit Blob(const int num, const int channels, const int height,
       const int width);
   explicit Blob(const vector<int>& shape);
@@ -266,12 +267,12 @@ class Blob {
   bool ShapeEquals(const BlobProto& other);
 
  protected:
-  shared_ptr<SyncedMemory> data_;
-  shared_ptr<SyncedMemory> diff_;
-  shared_ptr<SyncedMemory> shape_data_;
-  vector<int> shape_;
-  int count_;
-  int capacity_;
+  shared_ptr<SyncedMemory> data_;//数据
+  shared_ptr<SyncedMemory> diff_;//偏差
+  shared_ptr<SyncedMemory> shape_data_;//形状
+  vector<int> shape_;//形状
+  int count_;//数据个数：个数*通道数*高度*宽度
+  int capacity_;//数据容量
 
   DISABLE_COPY_AND_ASSIGN(Blob);
 };  // class Blob
